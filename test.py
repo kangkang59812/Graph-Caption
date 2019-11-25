@@ -1,5 +1,6 @@
 import torchvision
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+#torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from detection.faster_rcnn import FastRCNNPredictor
 import torch
 import cv2
 from PIL import Image
@@ -76,12 +77,12 @@ def overlay_boxes(image, predictions):
 #             ]
 #         )
 
-img1=Image.open('/home/lkk/code/my_faster/model/image2.jpg')
+img1=Image.open('/home/lkk/code/my_faster/image2.jpg')
+result=np.array(img1)[:, :, [2, 1, 0]].copy()
 
+#result=cv2.imread('/home/lkk/code/my_faster/model/image2.jpg')
 
-result=cv2.imread('/home/lkk/code/my_faster/model/image2.jpg')
-
-img2=Image.open('/home/lkk/code/my_faster/model/image2.jpg')
+#img2=Image.open('/home/lkk/code/my_faster/model/image2.jpg')
 #img2=transforms.ToTensor()(img2)
 
 model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
