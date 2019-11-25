@@ -1,1 +1,4 @@
-c.jpg
+*.jpg
+*.png
+*.jpeg
+.vscode
