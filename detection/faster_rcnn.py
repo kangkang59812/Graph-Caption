@@ -16,11 +16,6 @@ from .transform import GeneralizedRCNNTransform
 from .backbone_utils import resnet_fpn_backbone
 
 
-__all__ = [
-    "FasterRCNN", "fasterrcnn_resnet50_fpn",
-]
-
-
 class FasterRCNN(GeneralizedRCNN):
     """
     Implements Faster R-CNN.
@@ -168,7 +163,8 @@ class FasterRCNN(GeneralizedRCNN):
 
         if num_classes is not None:
             if box_predictor is not None:
-                raise ValueError("num_classes should be None when box_predictor is specified")
+                raise ValueError(
+                    "num_classes should be None when box_predictor is specified")
         else:
             if box_predictor is None:
                 raise ValueError("num_classes should not be None when box_predictor "
@@ -184,11 +180,14 @@ class FasterRCNN(GeneralizedRCNN):
             )
         if rpn_head is None:
             rpn_head = RPNHead(
-                out_channels, rpn_anchor_generator.num_anchors_per_location()[0]
+                out_channels, rpn_anchor_generator.num_anchors_per_location()[
+                    0]
             )
 
-        rpn_pre_nms_top_n = dict(training=rpn_pre_nms_top_n_train, testing=rpn_pre_nms_top_n_test)
-        rpn_post_nms_top_n = dict(training=rpn_post_nms_top_n_train, testing=rpn_post_nms_top_n_test)
+        rpn_pre_nms_top_n = dict(
+            training=rpn_pre_nms_top_n_train, testing=rpn_pre_nms_top_n_test)
+        rpn_post_nms_top_n = dict(
+            training=rpn_post_nms_top_n_train, testing=rpn_post_nms_top_n_test)
 
         rpn = RegionProposalNetwork(
             rpn_anchor_generator, rpn_head,
@@ -227,7 +226,8 @@ class FasterRCNN(GeneralizedRCNN):
             image_mean = [0.485, 0.456, 0.406]
         if image_std is None:
             image_std = [0.229, 0.224, 0.225]
-        transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
+        transform = GeneralizedRCNNTransform(
+            min_size, max_size, image_mean, image_std)
 
         super(FasterRCNN, self).__init__(backbone, rpn, roi_heads, transform)
 

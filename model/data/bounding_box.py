@@ -259,3 +259,10 @@ class BoxList(object):
         s += "image_height={}, ".format(self.size[1])
         s += "mode={})".format(self.mode)
         return s
+
+    def to_dict(self):
+        d = dict()
+        d['boxes'] = self.bbox
+        for k, v in self.extra_fields.items():
+            d[k] = v
+        return d

@@ -7,6 +7,8 @@ import torch
 from collections import OrderedDict
 
 from torch import nn
+
+
 class BalancedPositiveNegativeSampler(object):
     """
     This class samples batches, ensuring that they contain a fixed proportion of positives
@@ -51,8 +53,10 @@ class BalancedPositiveNegativeSampler(object):
             num_neg = min(negative.numel(), num_neg)
 
             # randomly select positive and negative examples
-            perm1 = torch.randperm(positive.numel(), device=positive.device)[:num_pos]
-            perm2 = torch.randperm(negative.numel(), device=negative.device)[:num_neg]
+            perm1 = torch.randperm(
+                positive.numel(), device=positive.device)[:num_pos]
+            perm2 = torch.randperm(
+                negative.numel(), device=negative.device)[:num_neg]
 
             pos_idx_per_image = positive[perm1]
             neg_idx_per_image = negative[perm2]
@@ -117,7 +121,8 @@ def encode_boxes(reference_boxes, proposals, weights):
     targets_dw = ww * torch.log(gt_widths / ex_widths)
     targets_dh = wh * torch.log(gt_heights / ex_heights)
 
-    targets = torch.cat((targets_dx, targets_dy, targets_dw, targets_dh), dim=1)
+    targets = torch.cat(
+        (targets_dx, targets_dy, targets_dw, targets_dh), dim=1)
     return targets
 
 
@@ -290,7 +295,8 @@ class Matcher(object):
         matches[between_thresholds] = Matcher.BETWEEN_THRESHOLDS
 
         if self.allow_low_quality_matches:
-            self.set_low_quality_matches_(matches, all_matches, match_quality_matrix)
+            self.set_low_quality_matches_(
+                matches, all_matches, match_quality_matrix)
 
         return matches
 
@@ -325,6 +331,7 @@ class Matcher(object):
         pred_inds_to_update = gt_pred_pairs_of_highest_quality[:, 1]
         matches[pred_inds_to_update] = all_matches[pred_inds_to_update]
 
+
 class IntermediateLayerGetter(nn.ModuleDict):
     """
     Module wrapper that returns intermediate layers from a model
@@ -356,6 +363,7 @@ class IntermediateLayerGetter(nn.ModuleDict):
         >>>     [('feat1', torch.Size([1, 64, 56, 56])),
         >>>      ('feat2', torch.Size([1, 256, 14, 14]))]
     """
+
     def __init__(self, model, return_layers):
         if not set(return_layers).issubset([name for name, _ in model.named_children()]):
             raise ValueError("return_layers are not present in model")

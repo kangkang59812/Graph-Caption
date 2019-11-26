@@ -14,15 +14,14 @@ from model.config import get_cfg_defaults
 
 
 class VisualGenomeDataset(Dataset):
-    def __init__(self, data_dir, split, transforms=None, num_im=-1, num_val_im=5000,
+    def __init__(self, data_dir, task, split, transforms=None, num_im=-1, num_val_im=5000,
                  filter_duplicate_rels=True, filter_non_overlap=True, filter_empty_rels=True):
         assert split == "train" or split == "test", "split must be one of [train, val, test]"
         assert num_im >= -1, "the number of samples must be >= 0"
-
-        self.data_dir = os.path.join(
-            '/home/lkk/datasets/VisualGenomedataset/', 'VG')
+        assert task in ['detection', 'graph']
+        self.data_dir = data_dir
         self.transforms = transforms
-
+        self.task = task
         self.split = split
         self.filter_non_overlap = filter_non_overlap
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
@@ -108,7 +107,8 @@ class VisualGenomeDataset(Dataset):
         """
         # get image
         img = Image.fromarray(self._im_getter(index))
-        # img.save('aa.png')
+        ridx = self.image_index[index]
+        #img.save('test.png')
         width, height = img.size
         # get object bounding boxes, labels and relations
         obj_boxes = self.gt_boxes[index].copy()
@@ -138,11 +138,22 @@ class VisualGenomeDataset(Dataset):
         target_raw = BoxList(obj_boxes, (width, height), mode="xyxy")
         img, target = self.transforms(img, target_raw)
         target.add_field("labels", torch.from_numpy(obj_labels))
+
+        target = target.clip_to_image(remove_empty=False)
+        if self.task == 'detection':
+            target.add_field("image_id", torch.tensor(
+                [ridx], dtype=torch.int64))
+            area = (target.bbox[:, 3] - target.bbox[:, 1]) * \
+                (target.bbox[:, 2] - target.bbox[:, 0])
+            target.add_field("area", area)
+            iscrowd = torch.zeros(
+                (len(self.ind_to_classes)-1,), dtype=torch.int64)
+            target.add_field("iscrowd", iscrowd)
+            return img, target.to_dict()
+        # 图卷积任务
         target.add_field("pred_labels", torch.from_numpy(obj_relations))
         target.add_field("relation_labels",
                          torch.from_numpy(obj_relation_triplets))
-        target = target.clip_to_image(remove_empty=False)
-
         return img, target, index
 
     def get_groundtruth(self, index):
@@ -179,6 +190,7 @@ class VisualGenomeDataset(Dataset):
                          torch.from_numpy(obj_relation_triplets))
         target.add_field("difficult", torch.from_numpy(
             obj_labels).clone().fill_(0))
+
         return target
 
     def get_img_info(self, img_id):
@@ -275,8 +287,8 @@ def load_graphs(graphs_file, images_file, mode='train', num_im=-1, num_val_im=0,
 
         # 5对关系和其关系类别
         if im_to_first_rel[i] >= 0:
-            predicates = _relation_predicates[im_to_first_rel[i]                                              :im_to_last_rel[i] + 1]
-            obj_idx = _relations[im_to_first_rel[i]                                 :im_to_last_rel[i] + 1] - im_to_first_box[i]
+            predicates = _relation_predicates[im_to_first_rel[i]:im_to_last_rel[i] + 1]
+            obj_idx = _relations[im_to_first_rel[i]:im_to_last_rel[i] + 1] - im_to_first_box[i]
             assert np.all(obj_idx >= 0)
             assert np.all(obj_idx < boxes_i.shape[0])
             rels = np.column_stack((obj_idx, predicates))
@@ -342,8 +354,9 @@ def bbox_overlaps(anchors, gt_boxes):
 
 if __name__ == "__main__":
     cfg = get_cfg_defaults()
-    data_dir = ''
+    data_dir = '/home/lkk/datasets/VisualGenomedataset/VG'
     transform = build_transforms(cfg, is_train=True)
-    data = VisualGenomeDataset(data_dir, split='train', transforms=transform)
-    data[0]
+    data = VisualGenomeDataset(
+        data_dir, task='detection', split='train', transforms=transform)
+    d = data[0]
     print("")
