@@ -22,7 +22,9 @@ from detection.coco_utils import get_coco_api_from_dataset
 from detection.coco_eval import CocoEvaluator
 from detection.group_by_aspect_ratio import GroupedBatchSampler, create_aspect_ratio_groups
 import pdb
+from tensorboardX import SummaryWriter
 cfg = get_cfg_defaults()
+log_dir = '/home/lkk/code/my_faster/log'
 
 
 def _get_iou_types(model):
@@ -51,11 +53,12 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=10)
 
         lr_scheduler = utils.warmup_lr_scheduler(
             optimizer, warmup_iters, warmup_factor)
-
+    writer = SummaryWriter(log_dir=log_dir)
+    i = 0
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
+        i += 1
         loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())
@@ -77,7 +80,12 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=10)
 
         if lr_scheduler is not None:
             lr_scheduler.step()
-
+        writer.add_scalars('train', {'loss_all': loss_value,
+                                     'loss_box_reg': loss_dict_reduced['loss_box_reg'].item(),
+                                     'loss_classifier': loss_dict_reduced['loss_classifier'].item(),
+                                     'loss_objectness': loss_dict_reduced['loss_objectness'].item(),
+                                     'loss_rpn_box_reg': loss_dict_reduced['loss_rpn_box_reg'].item()},
+                           epoch*len(data_loader)+i)
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
@@ -97,7 +105,7 @@ def evaluate(model, data_loader, device):
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
     for image, targets in metric_logger.log_every(data_loader, 100, header):
-        print("1")
+
         image = list(img.to(device) for img in image)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -250,17 +258,20 @@ if __name__ == "__main__":
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('--aspect-ratio-group-factor', default=-1, type=int)
     parser.add_argument('--resume', default='', help='resume from checkpoint')
-    parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
-    parser.add_argument('--output-dir', default='/home/lkk/code/my_faster/checkpoint', help='path where to save')
+    parser.add_argument('--print-freq', default=10,
+                        type=int, help='print frequency')
+    parser.add_argument(
+        '--output-dir', default='/home/lkk/code/my_faster/checkpoint', help='path where to save')
+    parser.add_argument(
+        '--log-dir', default='/home/lkk/code/my_faster/log', help='path where to save log')
     parser.add_argument(
         "--test-only",
         dest="test_only",
         help="Only test the model",
-        default='true',
         action="store_true",
-    )
+    )  # default='false',
 
-    confidence_threshold = 0.5
+    #confidence_threshold = 0.5
 
     args = parser.parse_args()
     if args.output_dir:
