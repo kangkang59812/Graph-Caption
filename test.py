@@ -13,7 +13,7 @@ from scipy.misc import imread, imresize
 from model.data.transforms.build import build_transforms
 from model.config import get_cfg_defaults
 from model.data.vg import VisualGenomeDataset
-confidence_threshold = 0.7
+confidence_threshold = 0.5
 palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** 21 - 1])
 
 
@@ -38,7 +38,7 @@ def select_top_predictions(predictions):
 
 
 def imshow(img):
-    cv2.imwrite('c.jpg', img)
+    cv2.imwrite('result.jpg', img)
     # plt.imshow(img[:, :, [2, 1, 0]])
     # plt.axis("off")
     # plt.savefig('test_image.png')
@@ -98,29 +98,39 @@ def overlay_boxes(image, predictions):
 # img[:, :, 2] = r
 
 cfg = get_cfg_defaults()
-data_dir = ''
+data_dir = '/home/lkk/datasets/VisualGenomedataset/VG'
 transform = build_transforms(cfg, is_train=True)
-data = VisualGenomeDataset(data_dir, split='train', transforms=transform)
+data = VisualGenomeDataset(data_dir, task='detection',
+                           split='train', transforms=transform)
 
 img1 = Image.open('/home/lkk/code/my_faster/image1.jpg')
 # result = np.array(img1)[:, :, [2, 1, 0]].copy()
-result = cv2.imread('/home/lkk/code/my_faster/test.png')
-img1 = np.array(img1)[:, :, [2, 1, 0]].copy()
+result = cv2.imread('/home/lkk/code/my_faster/image1.jpg')
+# img1 = np.array(img1)[:, :, [2, 1, 0]].copy()
 # img1 = np.array(img1)[:, :, [2, 1, 0]].copy()
 # img2=Image.open('/home/lkk/code/my_faster/model/image2.jpg')
 # img2=transforms.ToTensor()(img2)
-
+checkpoint = torch.load(
+    '/home/lkk/code/my_faster/checkpoint/model_67.pth', map_location='cpu')
 model = fasterrcnn_resnet50_fpn(pretrained=True)
+
+in_features = model.roi_heads.box_predictor.cls_score.in_features
+model.roi_heads.box_predictor = FastRCNNPredictor(
+    in_features, 151)
+model.load_state_dict(checkpoint['model'])
+
 model.eval()
 # 运行前后，x会在模型内部变形状,hook要注意用新的输入
 # x = [transforms.ToTensor()(img1)]
-x = [data[0][0]]
-predictions = model(x)
+for i in range(0, 100):
+    x = [data[i][0]]
+    result = cv2.imread('/home/lkk/code/my_faster/'+str(i)+'.png')
+    predictions = model(x)
 
-prediction = select_top_predictions(predictions)
+    prediction = select_top_predictions(predictions)
 
-result = overlay_boxes(result, prediction)
-imshow(result)
+    result = overlay_boxes(result, prediction)
+    imshow(result)
 
 
 features = torch.Tensor()

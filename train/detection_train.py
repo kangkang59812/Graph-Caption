@@ -24,7 +24,7 @@ from detection.group_by_aspect_ratio import GroupedBatchSampler, create_aspect_r
 import pdb
 from tensorboardX import SummaryWriter
 cfg = get_cfg_defaults()
-log_dir = '/home/lkk/code/my_faster/log'
+log_dir = '/home/lkk/code/my_faster/log2'
 
 
 def _get_iou_types(model):
@@ -56,36 +56,42 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=10)
     writer = SummaryWriter(log_dir=log_dir)
     i = 0
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
+        if epoch == 27:
+            print('')
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         i += 1
+        print("epoch {}/70, iteration{}/{}".format(epoch, i, len(data_loader)))
+
         loss_dict = model(images, targets)
 
-        losses = sum(loss for loss in loss_dict.values())
+        # losses = sum(loss for loss in loss_dict.values())
 
-        # reduce losses over all GPUs for logging purposes
-        loss_dict_reduced = utils.reduce_dict(loss_dict)
-        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+        # # reduce losses over all GPUs for logging purposes
+        # loss_dict_reduced = utils.reduce_dict(loss_dict)
+        # losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
-        loss_value = losses_reduced.item()
+        # loss_value = losses_reduced.item()
 
-        if not math.isfinite(loss_value):
-            print("Loss is {}, stopping training".format(loss_value))
-            print(loss_dict_reduced)
-            sys.exit(1)
+        # if not math.isfinite(loss_value):
+        #     print("Loss is {}, stopping training".format(loss_value))
+        #     print(loss_dict_reduced)
+        #     sys.exit(1)
 
-        optimizer.zero_grad()
-        losses.backward()
-        optimizer.step()
+        # optimizer.zero_grad()
+        # losses.backward()
+        # optimizer.step()
 
-        if lr_scheduler is not None:
-            lr_scheduler.step()
-        writer.add_scalars('train', {'loss_all': loss_value,
-                                     'loss_box_reg': loss_dict_reduced['loss_box_reg'].item(),
-                                     'loss_classifier': loss_dict_reduced['loss_classifier'].item(),
-                                     'loss_objectness': loss_dict_reduced['loss_objectness'].item(),
-                                     'loss_rpn_box_reg': loss_dict_reduced['loss_rpn_box_reg'].item()},
-                           epoch*len(data_loader)+i)
+        # if lr_scheduler is not None:
+        #     lr_scheduler.step()
+        # writer.add_scalars('train', {'loss_all': loss_value,
+        #                              'loss_box_reg': loss_dict_reduced['loss_box_reg'].item(),
+        #                              'loss_classifier': loss_dict_reduced['loss_classifier'].item(),
+        #                              'loss_objectness': loss_dict_reduced['loss_objectness'].item(),
+        #                              'loss_rpn_box_reg': loss_dict_reduced['loss_rpn_box_reg'].item()},
+        #                    epoch*len(data_loader)+i)
+        losses_reduced = torch.tensor([0.])
+        loss_dict_reduced = {'1': 0.0}
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
@@ -103,9 +109,7 @@ def evaluate(model, data_loader, device):
     coco = get_coco_api_from_dataset(data_loader.dataset)
     iou_types = _get_iou_types(model)
     coco_evaluator = CocoEvaluator(coco, iou_types)
-
     for image, targets in metric_logger.log_every(data_loader, 100, header):
-
         image = list(img.to(device) for img in image)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -128,10 +132,13 @@ def evaluate(model, data_loader, device):
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
+    # 下面这句引起内存溢出
     coco_evaluator.synchronize_between_processes()
 
     # accumulate predictions from all images
+    print("coco_evaluator.accumulate()")
     coco_evaluator.accumulate()
+    print("coco_evaluator.summarize()")
     coco_evaluator.summarize()
     torch.set_num_threads(n_threads)
     return coco_evaluator
@@ -196,32 +203,34 @@ def main(args):
         optimizer, milestones=args.lr_steps, gamma=args.lr_gamma)
     # lr_scheduler = torch.optim.lr_scheduler.StepLR(
     #     optimizer, step_size=8, gamma=0.5)
-
+    last_epoch = 0
     if args.resume:
+        print("from checkpoint*************")
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        last_epoch = lr_scheduler.last_epoch
     if args.test_only:
         evaluate(model, test_data_loader, device=device)
         return
 
     print("Start training")
     start_time = time.time()
-    for epoch in range(args.epochs):
+    for epoch in range(last_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         train_one_epoch(model, optimizer, train_data_loader,
                         device, epoch, args.print_freq)
-        lr_scheduler.step()
-        if args.output_dir:
-            utils.save_on_master({
-                'model': model_without_ddp.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'args': args},
-                os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
-        evaluate(model, test_data_loader, device=device)
+        # lr_scheduler.step()
+        # if args.output_dir:
+        #     utils.save_on_master({
+        #         'model': model_without_ddp.state_dict(),
+        #         'optimizer': optimizer.state_dict(),
+        #         'lr_scheduler': lr_scheduler.state_dict(),
+        #         'args': args},
+        #         os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
+        # evaluate(model, test_data_loader, device=device)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -237,7 +246,7 @@ if __name__ == "__main__":
         '--data_dir', default='/home/lkk/datasets/VisualGenomedataset/VG', help='dataset')
     parser.add_argument('--world-size', default=2, type=int,
                         help='number of distributed processes')
-    parser.add_argument('--epochs', default=30, type=int, metavar='N',
+    parser.add_argument('--epochs', default=70, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch-size', default=1, type=int,
                         help='images per gpu, the total batch size is $NGPU x batch_size')
@@ -250,20 +259,19 @@ if __name__ == "__main__":
                         help='initial learning rate, 0.02 is the default value for training '
                         'on 8 gpus and 2 images_per_gpu,0.02/8*$NGPU')
     parser.add_argument(
-        '--lr-steps', default=[15, 20], nargs='+', type=int, help='decrease lr every step-size epochs')
+        '--lr-steps', default=[30, 50], nargs='+', type=int, help='decrease lr every step-size epochs')
     parser.add_argument('--lr-gamma', default=0.1, type=float,
                         help='decrease lr by a factor of lr-gamma')
     parser.add_argument('--dist-url', default='env://',
                         help='url used to set up distributed training')
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('--aspect-ratio-group-factor', default=-1, type=int)
-    parser.add_argument('--resume', default='', help='resume from checkpoint')
+    parser.add_argument(
+        '--resume', default='', help='resume from checkpoint')
     parser.add_argument('--print-freq', default=10,
                         type=int, help='print frequency')
     parser.add_argument(
         '--output-dir', default='/home/lkk/code/my_faster/checkpoint', help='path where to save')
-    parser.add_argument(
-        '--log-dir', default='/home/lkk/code/my_faster/log', help='path where to save log')
     parser.add_argument(
         "--test-only",
         dest="test_only",
@@ -271,7 +279,7 @@ if __name__ == "__main__":
         action="store_true",
     )  # default='false',
 
-    #confidence_threshold = 0.5
+    # confidence_threshold = 0.5
 
     args = parser.parse_args()
     if args.output_dir:

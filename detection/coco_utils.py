@@ -153,9 +153,6 @@ def convert_to_coco_api(ds):
     ii = 0
     print("converting to coco format")
     for img_idx in tqdm(range(len(ds))):
-        # ii += 1
-        # if ii == 100:
-        #     break
         # find better way to get target
         # targets = ds.get_annotations(img_idx)
         img, targets = ds[img_idx]

@@ -4,4 +4,5 @@
 .vscode
 *.pyc
 datasets/*
-log/*
+log*
+*.pth

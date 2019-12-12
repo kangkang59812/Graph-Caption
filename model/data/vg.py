@@ -108,7 +108,7 @@ class VisualGenomeDataset(Dataset):
         # get image
         img = Image.fromarray(self._im_getter(index))
         ridx = self.image_index[index]
-        #img.save('test.png')
+        # img.save(str(index)+'.png')
         width, height = img.size
         # get object bounding boxes, labels and relations
         obj_boxes = self.gt_boxes[index].copy()

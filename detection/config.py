@@ -34,6 +34,9 @@ _C.INPUT.HUE = 0.0                 # Image ColorJitter
 _C.INPUT.VERTICAL_FLIP_PROB_TRAIN = 0.0
 """"======================================="""
 
+# _C.MODEL.ROI_RELATION_HEAD.GRCNN_FEATURE_UPDATE_STEP = 4
+# _C.MODEL.ROI_BOX_HEAD.NUM_CLASSES = 151
+# _C.MODEL.ROI_RELATION_HEAD.NUM_CLASSES = 51
 
 def get_cfg_defaults():
     """Get a yacs CfgNode object with default values for my_project."""
